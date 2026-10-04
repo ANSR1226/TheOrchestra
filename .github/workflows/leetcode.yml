@@ -1,0 +1,61 @@
+name: Update LeetCode Streak
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Fetch LeetCode Streak
+        env:
+          LEETCODE_USERNAME: "ANSR1226"
+        run: |
+          python -c '
+          import urllib.request, json, re
+
+          username = "$LEETCODE_USERNAME"
+          url = "https://leetcode-stats-api.herokuapp.com/" + username
+
+          try:
+              req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+              with urllib.request.urlopen(req) as response:
+                  data = json.loads(response.read().decode())
+                  total = data.get("totalSolved", 0)
+                  easy = data.get("easySolved", 0)
+                  medium = data.get("mediumSolved", 0)
+                  hard = data.get("hardSolved", 0)
+                  acceptance = data.get("acceptanceRate", 0)
+          except Exception as e:
+              print(f"Error fetching stats: {e}")
+              total, easy, medium, hard, acceptance = 0, 0, 0, 0, 0
+
+          badge_url = f"https://leetcode-stats-six.vercel.app/api?username={username}&theme=dark"
+          content = f"### 📊 LeetCode Stats\n\n![LeetCode Stats]({badge_url})\n"
+
+          with open("README.md", "r") as f:
+              readme = f.read()
+
+          pattern = r"<!--leetcode-stats-card-start-->[\s\S]*?<!--leetcode-stats-card-end-->"
+          replacement = f"<!--leetcode-stats-card-start-->\n{content}\n<!--leetcode-stats-card-end-->"
+
+          if "<!--leetcode-stats-card-start-->" in readme:
+              new_readme = re.sub(pattern, replacement, readme)
+          else:
+              new_readme = readme + f"\n\n{replacement}"
+
+          with open("README.md", "w") as f:
+              f.write(new_readme)
+          '
+
+      - name: Commit and Push Changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update leetcode stats and streak"
